@@ -1,0 +1,100 @@
+@SpringBootApplication
+public class GraphQLQueryAnalyzerApplication {
+
+    @Bean
+    public KafkaConsumer<String, String> kafkaConsumer(ConsumerFactory<String, String> consumerFactory) {
+        return consumerFactory.createConsumer();
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(GraphQLQueryAnalyzerApplication.class, args);
+    }
+}
+@Configuration
+public class KafkaConfig {
+
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactoryConfigurer().build());
+        return factory;
+    }
+
+    private ConsumerFactory<String, String> consumerFactoryConfigurer() {
+        ConsumerFactory<String, String> factory = new DefaultKafkaConsumerFactory<>(
+                consumerProperties(),
+                StringDeserializer.class,
+                StringDeserializer.class
+        );
+        return factory;
+    }
+
+    @Bean
+    public Map<String, Object> consumerProperties() {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("bootstrap.servers", "localhost:9092");
+        properties.put("group.id", "graphql-query-analyzer");
+        return properties;
+    }
+}
+@Service
+public class QueryAnalyzerService {
+
+    private final ConcurrentMap<String, GraphQLQuery> queryRepository;
+    private final List<HasuraClient> hasuraClients;
+    private final KafkaConsumer<String, String> kafkaConsumer;
+
+    public QueryAnalyzerService(ConcurrentMap<String, GraphQLQuery> queryRepository,
+                               List<HasuraClient> hasuraClients,
+                               KafkaConsumer<String, String> kafkaConsumer) {
+        this.queryRepository = queryRepository;
+        this.hasuraClients = hasuraClients;
+        this.kafkaConsumer = kafkaConsumer;
+    }
+
+    public void processQueries() {
+        kafkaConsumer.subscribe(Collections.singletonList("graphql-queries"));
+        while (true) {
+            ConsumerRecord<String, String> record = kafkaConsumer.poll();
+            if (record != null) {
+                GraphQLQuery query = parseQuery(record.value());
+                List<SimilarQuery> similarQueries = findSimilarQueries(query);
+                for (SimilarQuery similarQuery : similarQueries) {
+                    executeQueryAndAnalyzeResults(query, similarQuery);
+                }
+            }
+        }
+    }
+
+    private GraphQLQuery parseQuery(String queryText) {
+        // Parse the query text into a GraphQLQuery object
+        return null;
+    }
+
+    private List<SimilarQuery> findSimilarQueries(GraphQLQuery query) {
+        // Identify similar queries based on a similarity metric (e.g., Jaccard similarity)
+        List<SimilarQuery> similarQueries = null;
+        return similarQueries;
+    }
+
+    private void executeQueryAndAnalyzeResults(GraphQLQuery query, SimilarQuery similarQuery) {
+        // Execute the query against each Hasura environment
+        // Analyze the results and identify differences
+        // Generate visualizations or reports
+    }
+}
+public class HasuraClient {
+    private final String endpoint;
+    private final String token;
+
+    public HasuraClient(String endpoint, String token) {
+        this.endpoint = endpoint;
+        this.token = token;
+    }
+
+    public String executeQuery(GraphQLQuery query) {
+        // Execute the GraphQL query against the Hasura endpoint using the provided token
+        // Return the query result as a JSON string
+        return null;
+    }
+}
