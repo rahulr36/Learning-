@@ -1,0 +1,23 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.function.Predicate;
+
+public class FindFile {
+
+    public static void main(String[] args) throws IOException {
+        String filePath = "C:\\path\\to\\folder"; // Replace with your desired path
+        String fileName = "query.gql";
+
+        Path path = Paths.get(filePath);
+        Predicate<Path> predicate = (file) -> Files.isRegularFile(file) && file.getFileName().toString().equals(fileName);
+
+        Files.walkFileTree(path, predicate, (path, fileAttributes) -> {
+            if (fileAttributes.isRegularFile()) {
+                System.out.println("File found: " + path);
+                return;
+            }
+        });
+    }
+}
