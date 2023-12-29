@@ -1,0 +1,27 @@
+public class FilesUtil {
+
+    public Map<String, String> getMigrationsMap(String migrationsPath, String fileName) throws IOException {
+
+        Path path = Paths.get(migrationsPath);
+        Predicate<Path> predicate = (file) -> Files.isRegularFile(file) && file.getFileName().toString().equals(fileName);
+
+        Map<String, String> fileContentMap = new HashMap<>();
+        Files.walkFileTree(path, predicate, Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
+
+            @Override
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
+                Path parent = path.getParent();
+                String folderName = Optional.ofNullable(parent)
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .orElseThrow(() -> new RuntimeException("Parent path not found"));
+
+                String fileContent = new String(Files.readAllBytes(path));
+                fileContentMap.put(folderName, fileContent);
+
+                return FileVisitResult.CONTINUE;
+            }
+        );
+
+        return fileContentMap;
+    }
