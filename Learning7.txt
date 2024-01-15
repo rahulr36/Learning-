@@ -1,0 +1,64 @@
+
+import graphql.language.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+
+public class GraphQLQueryComparator implements Comparator<String> {
+
+    @Override
+    public int compare(String query1, String query2) {
+        // Parse the GraphQL queries into ASTs
+        Document queryAst1 = GraphQL.newParser().parse(query1);
+        Document queryAst2 = GraphQL.newParser().parse(query2);
+
+        // Convert the ASTs to maps
+        Map<String, String> queryAstMap1 = toMap(queryAst1);
+        Map<String, String> queryAstMap2 = toMap(queryAst2);
+
+        // Compare the maps
+        return queryAstMap1.equals(queryAstMap2) ? 0 : -1;
+    }
+
+    private Map<String, String> toMap(Document document) {
+        Map<String, String> queryAstMap = new HashMap<>();
+
+        for (Definition definition : document.getDefinitions()) {
+            if (definition instanceof OperationDefinition) {
+                OperationDefinition operationDefinition = (OperationDefinition) definition;
+                String operationName = operationDefinition.getName().getText();
+
+                String selectionSetString = toSelectionSetString(operationDefinition.getSelectionSet());
+
+                queryAstMap.put(operationName, selectionSetString);
+            }
+        }
+
+        return queryAstMap;
+    }
+
+    private String toSelectionSetString(SelectionSet selectionSet) {
+        StringBuilder selectionSetString = new StringBuilder();
+
+        for (Selection selection : selectionSet.getSelections()) {
+            String selectionString = selection.toString();
+
+            // Check if the selection has an alias
+            if (selection instanceof Field) {
+                Field field = (Field) selection;
+                String alias = field.getAlias() != null ? field.getAlias().getText() : "";
+
+                selectionSetString.append(alias).append(": ").append(selectionString).append(", ");
+            } else {
+                // If the selection doesn't have an alias, set it to an empty string
+                selectionSetString.append(selectionString).append(", ");
+            }
+        }
+
+        if (selectionSetString.length() > 0) {
+            selectionSetString.deleteCharAt(selectionSetString.length() - 2);
+        }
+
+        return selectionSetString.toString();
+    }
+}
