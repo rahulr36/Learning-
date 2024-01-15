@@ -1,0 +1,52 @@
+import java.util.Comparator;
+import java.util.Map;
+import java.util.TreeMap;
+
+public class GraphQLQueryComparator implements Comparator<String> {
+
+    @Override
+    public int compare(String query1, String query2) {
+        Map<String, String> queryAST1 = parseQueryAST(query1);
+        Map<String, String> queryAST2 = parseQueryAST(query2);
+
+        return queryAST1.equals(queryAST2) ? 0 : -1;
+    }
+
+    private Map<String, String> parseQueryAST(String query) {
+        // Parse the GraphQL query into an abstract syntax tree (AST)
+        GraphQLParser parser = new GraphQLParser();
+        GraphQLParser.QueryContext queryContext = parser.parseQuery(query);
+
+        // Convert the AST into a map
+        Map<String, String> queryAST = new TreeMap<>();
+        for (GraphQLParser.OperationDefinitionContext operationDefinitionContext : queryContext.operationDefinition()) {
+            String operationName = operationDefinitionContext.name().getText();
+            Map<String, String> selectionSetAST = new TreeMap<>();
+            for (GraphQLParser.SelectionSetContext selectionSetContext : operationDefinitionContext.selectionSet().selectionSet()) {
+                String fieldAST = selectionSetContext.field().name().getText();
+                if (selectionSetContext.arguments() != null) {
+                    fieldAST += "(" + parseArguments(selectionSetContext.arguments()) + ")";
+                }
+                selectionSetAST.put(selectionSetContext.field().alias().getText() != null ? selectionSetContext.field().alias().getText() : fieldAST, "");
+            }
+            queryAST.put(operationName, selectionSetAST.toString());
+        }
+        return queryAST;
+    }
+
+    private String parseArguments(GraphQLParser.ArgumentsContext argumentsContext) {
+        StringBuilder argString = new StringBuilder();
+        for (GraphQLParser.ArgumentContext argumentContext : argumentsContext.argument()) {
+            argString.append(argumentContext.name().getText() + ": " + argumentContext.value().getText() + ", ");
+        }
+        if (argString.length() > 0) {
+            argString.deleteCharAt(argString.length() - 1);
+        }
+        return argString.toString();
+    }
+}
+
+
+GraphQLQueryComparator comparator = new GraphQLQueryComparator();
+int comparison = comparator.compare("query MyQuery { users { id name } }", "query MyOtherQuery { posts { title author } }");
+System.out.println(comparison); 
