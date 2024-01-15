@@ -1,0 +1,50 @@
+import graphql.language.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+
+public class GraphQLQueryComparator implements Comparator<String> {
+
+    @Override
+    public int compare(String query1, String query2) {
+        // Parse the GraphQL queries into ASTs
+        Document queryAst1 = parseQuery(query1);
+        Document queryAst2 = parseQuery(query2);
+
+        // Convert the ASTs to maps
+        Map<String, String> queryAstMap1 = toMap(queryAst1);
+        Map<String, String> queryAstMap2 = toMap(queryAst2);
+
+        // Compare the maps
+        return queryAstMap1.equals(queryAstMap2) ? 0 : -1;
+    }
+
+    private Document parseQuery(String query) {
+        // Parse the GraphQL query into an abstract syntax tree (AST)
+        ParserDefinition parserDefinition = GraphQL.newParserDefinition().build();
+        Parser parser = parserDefinition.createParser(query);
+        Document document = parser.document();
+
+        return document;
+    }
+
+    private Map<String, String> toMap(Document document) {
+        Map<String, String> queryAstMap = new HashMap<>();
+
+        for (OperationDefinition operationDefinition : document.getDefinitions()) {
+            String operationName = operationDefinition.getName().getText();
+
+            Map<String, String> selectionSetAstMap = new HashMap<>();
+            for (Selection selection : operationDefinition.getSelectionSet().getSelections()) {
+                String selectionString = selection.toString();
+                String alias = selection.getAlias() != null ? selection.getAlias().getText() : "";
+
+                selectionSetAstMap.put(alias, selectionString);
+            }
+
+            queryAstMap.put(operationName, selectionSetAstMap.toString());
+        }
+
+        return queryAstMap;
+    }
+}
