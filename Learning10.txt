@@ -1,0 +1,108 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"sort"
+)
+
+// Simplified representation of a potential GraphQL response
+type GraphQLResponse map[string]interface{}
+
+// compareGraphQLResponses: Top-level comparison function
+func compareGraphQLResponses(resp1, resp2 GraphQLResponse) (bool, string) {
+	//  Normalization
+	normalizeResponses(&resp1, &resp2)
+
+    var differences string
+	isEqual, diff := deepCompare(resp1, resp2)
+	if diff != "" {
+		differences += diff
+	}
+	return isEqual, differences
+}
+
+// ... (normalizeResponses and sortArrayIfNecessary remain the same) ...
+
+// deepCompare: Recursively compares values, tracks differences
+func deepCompare(value1, value2 interface{}) (bool, string) {
+	switch v1 := value1.(type) {
+	case map[string]interface{}:
+		return compareObjects(v1, value2.(map[string]interface{})) 
+	case []interface{}:
+		return compareArrays(v1, value2.([]interface{}))
+	default:
+		if v1 != value2 {
+			return false, fmt.Sprintf("Value mismatch: %v != %v\n", v1, value2)
+		}
+		return true, ""
+	}
+}
+
+// compareObjects: Compares GraphQL objects (maps)
+func compareObjects(obj1, obj2 map[string]interface{}) (bool, string) {
+	keys1 := make([]string, 0, len(obj1))
+	for key := range obj1 {
+		keys1 = append(keys1, key)
+	}
+	sort.Strings(keys1) // Consistent key order
+
+	keys2 := make([]string, 0, len(obj2))
+	for key := range obj2 {
+		keys2 = append(keys2, key)
+	}
+	sort.Strings(keys2)
+
+	if !reflect.DeepEqual(keys1, keys2) {
+		return false, "Key sets differ\n"
+	}
+
+    // Track objects already compared to avoid cycles
+	comparisonMap := make(map[string]bool) 
+
+	for _, key := range keys1 {
+		val1 := obj1[key]
+		val2 := obj2[key]
+
+		// Avoid deep comparisons if identical
+		if val1 == val2 { 
+			continue 
+		}
+
+        // Serialize for map key usage 
+		val1Key := fmt.Sprintf("%v", val1)
+		val2Key := fmt.Sprintf("%v", val2)
+		if _, ok := comparisonMap[val1Key+val2Key]; ok {
+			continue 
+		}
+		comparisonMap[val1Key+val2Key] = true 
+
+		isEqual, diff := deepCompare(val1, val2)
+		if !isEqual {
+			return false, fmt.Sprintf("Difference in key '%s': %s", key, diff)
+		}
+	}
+
+	return true, ""
+}
+
+// compareArrays: Compares arrays (order-insensitive)
+func compareArrays(arr1, arr2 []interface{}) (bool, string) {
+	if len(arr1) != len(arr2) {
+		return false, "Array length mismatch\n"
+	}
+
+	foundMap := make(map[interface{}]bool)
+	for _, item := range arr1 {
+		foundMap[item] = true
+	}
+	for _, item := range arr2 {
+		if !foundMap[item] {
+			return false, fmt.Sprintf("Array mismatch: item '%v' not found\n", item)
+		}
+	}
+	return true, ""
+}
+
+// ... (Add main function for example usage)
