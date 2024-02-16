@@ -1,0 +1,119 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+)
+
+// Simplified representation of a potential GraphQL response
+type GraphQLResponse map[string]interface{}
+
+func compareGraphQLResponses(resp1, resp2 GraphQLResponse) (bool, []string) {
+	//  Normalization
+	normalizeResponses(&resp1, &resp2)
+
+	differences := []string{}
+	isEqual, diff := deepCompare(resp1, resp2)
+	if diff != "" {
+		differences = append(differences, diff)
+	}
+	return isEqual, differences
+}
+
+// normalizeResponses: Sorts arrays within GraphQL responses (in-place)
+func normalizeResponses(resp1, resp2 *GraphQLResponse) {
+	for key, value := range *resp1 {
+		sortArrayIfNecessary(key, value)
+	}
+	for key, value := range *resp2 {
+		sortArrayIfNecessary(key, value)
+	}
+}
+
+// sortArrayIfNecessary: Helper function to recursively sort arrays
+func sortArrayIfNecessary(key string, value interface{}) {
+	if arr, ok := value.([]interface{}); ok {
+		sort.Slice(arr, func(i, j int) bool {
+			// Replace with your desired array sorting logic 
+			// Example: Simple string comparison
+			return arr[i].(string) < arr[j].(string) 
+		})
+	} else {
+		// Recurse into nested objects
+		if obj, ok := value.(map[string]interface{}); ok {
+			for k, v := range obj {
+				sortArrayIfNecessary(k, v)
+			}
+		}
+	}
+}
+
+// deepCompare: Recursively compares values, tracks differences
+func deepCompare(value1, value2 interface{}) (bool, string) {
+	switch v1 := value1.(type) {
+	case map[string]interface{}:
+		v2, ok := value2.(map[string]interface{})
+		if !ok {
+			return false, fmt.Sprintf("Type mismatch at root")
+		}
+		return compareObjects(v1, v2)
+
+	case []interface{}:
+		v2, ok := value2.([]interface{})
+		if !ok {
+			return false, fmt.Sprintf("Type mismatch at array")
+		}
+		return compareArrays(v1, v2)
+
+	default:
+		if v1 != v2 {
+			return false, fmt.Sprintf("Value mismatch: %v != %v", v1, v2)
+		}
+		return true, "" 
+	}
+}
+
+// compareObjects: Compares GraphQL objects (maps)
+func compareObjects(obj1, obj2 map[string]interface{}) (bool, string) {
+	for key, val1 := range obj1 {
+		val2, ok := obj2[key]
+		if !ok {
+			return false, fmt.Sprintf("Key '%s' missing", key)
+		}
+		isEqual, diff := deepCompare(val1, val2)
+		if !isEqual {
+            return false, fmt.Sprintf("Difference in key '%s': %s", key, diff)
+		}
+	}
+
+	// Check for extra keys in obj2
+	for key := range obj2 {
+		if _, ok := obj1[key]; !ok {
+			return false, fmt.Sprintf("Extra key '%s'", key)
+		}
+	}
+
+	return true, ""
+}
+
+// compareArrays: Compares arrays (order-insensitive)
+func compareArrays(arr1, arr2 []interface{}) (bool, string) {
+	if len(arr1) != len(arr2) {
+		return false, "Array length mismatch"
+	}
+
+	// Simple order-insensitive check: All elements must exist
+	foundMap := make(map[interface{}]bool)
+	for _, item := range arr1 {
+		foundMap[item] = true 
+	}
+	for _, item := range arr2 {
+		if !foundMap[item] {
+			return false, fmt.Sprintf("Array mismatch: item '%v' not found", item)
+		}
+	}
+	return true, "" 
+}
+
+// ... (Add main function for example usage) 
