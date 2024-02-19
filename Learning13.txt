@@ -1,0 +1,61 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"sort"
+)
+
+// sortNestedJSON recursively sorts nested arrays within a JSON structure.
+func sortNestedJSON(data interface{}) interface{} {
+	switch value := data.(type) {
+	case map[string]interface{}: // If it's a map (JSON object)
+		for key, val := range value {
+			value[key] = sortNestedJSON(val)
+		}
+	case []interface{}: // If it's an array (JSON array)
+		for i, val := range value {
+			value[i] = sortNestedJSON(val)
+		}
+		// Directly apply sort.Slice for arrays of strings
+		sort.Slice(value, func(i, j int) bool {
+			str1 := value[i].(string)
+			str2 := value[j].(string)
+			return str1 < str2
+		})
+
+	}
+	return data
+}
+
+func main() {
+	// Load JSON from file
+	jsonFile, err := os.Open("your_json_file.json")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer jsonFile.Close()
+
+	var jsonData interface{}
+	decoder := json.NewDecoder(jsonFile)
+	err = decoder.Decode(&jsonData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// Sort the nested JSON
+	sortedData := sortNestedJSON(jsonData)
+
+	// Marshal back to JSON and write to a new file
+	sortedJSON, _ := json.MarshalIndent(sortedData, "", "  ")
+	err = os.WriteFile("sorted_json_file.json", sortedJSON, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Sorting complete!")
+}
