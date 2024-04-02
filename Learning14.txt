@@ -1,0 +1,38 @@
+from confluent_kafka.admin import AdminClient, NewTopic
+from confluent_kafka import Consumer
+
+# Kafka configuration (same as before)
+conf = {
+    'bootstrap.servers': 'your_broker_address',  
+    # ... your security settings 
+}
+
+# Create AdminClient 
+admin_client = AdminClient(conf)
+
+# Hardcode the topic name
+topic_name = 'xyz' 
+
+# Ensure the topic exists
+topic_metadata = admin_client.list_topics(timeout=10)
+if topic_name not in topic_metadata.topics:
+    print(f"Topic '{topic_name}' does not exist.")
+    exit(1) 
+
+# Create a Consumer object (necessary for watermark retrieval)
+consumer_conf = {'group.id': 'watermark_group',  # Choose a group ID
+                 'auto.offset.reset': 'earliest'} 
+consumer = Consumer(consumer_conf)
+
+# Assign the consumer to the topic & partitions
+tps = []
+for partition in topic_metadata.topics[topic_name].partitions:
+    tps.append(TopicPartition(topic_name, partition))
+consumer.assign(tps)
+
+# Get watermarks and print offsets
+for tp in tps:
+    low, high = consumer.get_watermark_offsets(tp, timeout=10)
+    print(f"Partition: {tp.partition}, Last Offset: {high}")
+
+consumer.close()
