@@ -1,0 +1,33 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+
+public class GraphQLParser {
+    public static void main(String[] args) throws IOException {
+        String graphqlQuery = """
+                query GetProducts {
+                  products {
+                    name
+                    price
+                  }
+                }
+                """;
+
+        // Optional Cleanup
+        String compactQuery = graphqlQuery.replace(/\s+/g, ' ').trim();
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Convert to JSON Object
+        String jsonObject = mapper.writeValueAsString(new GraphQLRequest(compactQuery));
+        System.out.println(jsonObject);
+    }
+
+    // Simple helper class to represent the JSON structure
+    private static class GraphQLRequest {
+        public String query;
+
+        public GraphQLRequest(String query) {
+            this.query = query;
+        }
+    }
+}
